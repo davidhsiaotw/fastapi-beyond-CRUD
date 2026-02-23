@@ -33,13 +33,8 @@ jobs:
 
       - name: Set image tag
         id: tag
-        run: |
-          if [ "${{ steps.version.outputs.new_release_published }}" = "true" ]; then
-            echo "version=${{ steps.version.outputs.new_release_version }}" >> $GITHUB_OUTPUT
-          else
-            echo "version=nightly.$(date +'%Y%m%d')" >> $GITHUB_OUTPUT
-          fi
-      
+        if: steps.version.outputs.new_release_published == 'true'
+        run: echo "version=${{ steps.version.outputs.new_release_version }}" >> $GITHUB_OUTPUT
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -86,6 +81,7 @@ jobs:
             --body "The nightly build failed due to test errors.\n\nTest Output:\n$FAIL_OUTPUT"
 
       - name: Login to Container Registry
+        if: steps.version.outputs.new_release_published == 'true'
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
@@ -93,10 +89,10 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and Push
+        if: steps.version.outputs.new_release_published == 'true'
         uses: docker/build-push-action@v5
         with:
           context: .
           push: true
           tags: |
             ghcr.io/${{ github.repository_owner }}/fastapi-beyond-crud:${{ steps.tag.outputs.version }}
-            ghcr.io/${{ github.repository_owner }}/fastapi-beyond-crud:nightly
