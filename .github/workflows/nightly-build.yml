@@ -42,7 +42,24 @@ jobs:
           MAIL_FROM_NAME: ${{ secrets.MAIL_FROM_NAME }}
           DOMAIN: ${{ secrets.DOMAIN }}
           REDIS_URL: ${{ secrets.REDIS_URL }}
-        run: pytest src/tests
+        run: pytest src/tests 2>&1 | tee /tmp/pytest_output.txt; exit ${PIPESTATUS[0]}
+
+      - name: Notify on Test Failure
+        if: steps.run-tests.outcome == 'failure'
+        env:
+          MAIL_SERVER: ${{ secrets.MAIL_SERVER }}
+          MAIL_PORT: ${{ secrets.MAIL_PORT }}
+          MAIL_USERNAME: ${{ secrets.MAIL_USERNAME }}
+          MAIL_PASSWORD: ${{ secrets.MAIL_PASSWORD }}
+          MAIL_FROM: ${{ secrets.MAIL_FROM }}
+        run: |
+          AUTHOR_EMAIL=$(git log -1 --pretty=format:'%ae')
+          FAIL_OUTPUT=$(cat /tmp/pytest_output.txt)
+          echo "Sending failure email to $AUTHOR_EMAIL"
+          python scripts/send_email.py \
+            --to "$AUTHOR_EMAIL" \
+            --subject "Nightly Build Failed: Test Failure" \
+            --body "The nightly build failed due to test errors.\n\nTest Output:\n$FAIL_OUTPUT"
 
       - name: Login to Container Registry
         uses: docker/login-action@v3
