@@ -1,0 +1,44 @@
+name: Conventional Commits Check
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize]
+
+permissions:
+  pull-requests: write
+  contents: read
+
+jobs:
+  validate-conventional-commits:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validate Conventional Commits
+        uses: wagoid/commitlint-github-action@v6
+
+      - name: Close PR and Notify on Failure
+        if: failure()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          MAIL_SERVER: ${{ secrets.MAIL_SERVER }}
+          MAIL_PORT: ${{ secrets.MAIL_PORT }}
+          MAIL_USERNAME: ${{ secrets.MAIL_USERNAME }}
+          MAIL_PASSWORD: ${{ secrets.MAIL_PASSWORD }}
+          MAIL_FROM: ${{ secrets.MAIL_FROM }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+        run: |
+          echo "PR violated Conventional Commits. Closing..."
+          gh pr close $PR_NUMBER --comment "This PR has been closed because the commits do not follow Conventional Commits guidelines. Please ensure your commits are conventional and reopen."
+          
+          # Attempt to find email.
+          # We can use git log to find the author email of the last commit on the branch
+          AUTHOR_EMAIL=$(git log -1 --pretty=format:'%ae')
+          echo "Sending email to $AUTHOR_EMAIL"
+          
+          # Run the python script
+          python scripts/send_email.py --to "$AUTHOR_EMAIL" --subject "PR Closed: Conventional Commits Violation" --body "Your Pull Request #$PR_NUMBER has been closed because its commits do not follow Conventional Commits. Please update them."
