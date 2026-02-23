@@ -2,8 +2,10 @@ name: Nightly Build and Test
 
 on:
   schedule:
-    - cron: './15 * * * *' # every 15 minutes
-  workflow_dispatch:
+    - cron: '*/15 * * * *' # every 15 minutes
+  push:
+    branches:
+      - main
 
 permissions:
   packages: write
